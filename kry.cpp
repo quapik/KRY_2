@@ -5,11 +5,12 @@
 #include <string>
 #include <bitset>
 #include <cmath>
+#include <regex>
 
 
 uint32_t rightrotate(uint32_t k_rotaci,  unsigned int velikost_rotace) { return (k_rotaci >> velikost_rotace) | (k_rotaci << (32 - velikost_rotace)); }
 using namespace std;
-void checksum(string msg){
+string checksum(string msg){
     unsigned int i;
     unsigned int len = msg.length();
     const int size = 64;
@@ -91,13 +92,28 @@ void checksum(string msg){
     hash[6] = hash[6] + g;
     hash[7]= hash[7] + h;
 
+    stringstream ss;
     // Append hash values to get final digest and print
-    for(i = 0; i < 8; i++) cout << hex << hash[i];
-    cout << endl;
+    for(i = 0; i < 8; i++) ss << hex << hash[i];
+    return(ss.str());
+}
+
+int vypocetMAC(string msg, string key)
+{
+     if (!regex_match(key, regex("^[A-Za-z0-9]*$"))) 
+     {
+        cerr<< "Nesplneny regex  ^[A-Za-z0-9]*$ pro -k KEY" << endl;
+        return -1;
+     }
+     else{
+        cout << checksum(key+msg) << endl;
+        return 0;
+     }
 }
 
 
 int main(int argc, char** argv) {
+    string out = "";
     //Program bez parametrů - dokumentace na STD out
      if (argc == 1) {
         cout << "Dokumentace!" << endl;
@@ -105,18 +121,91 @@ int main(int argc, char** argv) {
     }
     //Nacteni vstupní zprávy
     string input = "";
+    string key = "";
+    string chs = "";
+    bool s_flag = false;
+    bool k_flag = false;
+    bool c_flag = false;
+    bool v_flag = false;
+    bool m_flag = false;
     getline(cin, input);
     int argument;
-    while ((argument  = getopt (argc, argv, "c")) != -1)
+    while ((argument  = getopt (argc, argv, "csk:vm:")) != -1)
     {
         switch (argument) 
         {
-            case 'c':
-                checksum(input);
-                break;
-         }
+        case 'c':
+            c_flag = true;
+            break;
+        case 's':
+            s_flag = true;
+            break;
+        case 'v':
+            v_flag = true;
+            break;
+        case 'k':
+            k_flag = true;
+            key = optarg;
+            break;
+        case 'm':
+            m_flag = true;
+            chs = optarg;
+            break;
+        }
+    }
+
+    //-c – Vypočte a tiskne SHA-256 checksum vstupní zprávy na STDOUT (zakončeno právě jedním \n).
+    if (c_flag) 
+    {
+        out = checksum(input);
+        cout << out << endl;
+    }
+
+    //-s – Vypočte MAC, použitím implementované SHA-256, pro vstupní zprávu a tisne výsledek na STDOUT (zakončeno právě jedním \n). Musí být použito v kombinaci s -k parametrem.
+    if (s_flag)
+    {
+        if (k_flag) 
+        {
+            if (!regex_match(key, regex("^[A-Za-z0-9]*$"))) 
+            {
+                cerr<< "Nesplneny regex  ^[A-Za-z0-9]*$ pro -k KEY" << endl;
+                return -1;
+            }
+            else{
+                cout << checksum(key+input) << endl;
+                return 0;
+            }
+        }
+        else
+        {
+            cerr << "Spatne zadany argument -s bez použití -k KEY" << endl;
+            return -1;
+        }
+    }
+    // v – Ověří MAC pro daný klíč a vstupní zprávu. Vrací 0 v případě validního MAC, jinak 1. Musí být použito v kombinaci s -k a -m parametry.
+    if (v_flag)
+    {
+        if(k_flag && m_flag) 
+        {
+            
+           if (checksum(key+input) == chs)
+           {
+            cout << "OK!!" << endl; //TODO SMAZAT
+            return 0;
+           }
+           else  {
+            cout << "NOT OK!!" << endl;  //TODO SMAZAT
+            return 1;
+           }
+        }
+        else
+        {
+        cerr << "Spatne zadany argument -v bez použití -k KEY či -m CHS" << endl;
+        return -1;
+        }
 
     }
 
+    //TODO Return pokud nic nepatterne
     return 0;
 }
