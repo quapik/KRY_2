@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -Wall -Wextra -fsanitize=address -fsanitize=leak
 
-TARGET = main
+TARGET = kry
  
   all: $(TARGET)
  
