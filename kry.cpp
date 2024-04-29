@@ -1,5 +1,3 @@
-// Your First C++ Program
-
 #include <iostream>
 #include <getopt.h>
 #include <string>
@@ -8,17 +6,18 @@
 #include <regex>
 
 
+
 uint32_t rightrotate(uint32_t k_rotaci,  unsigned int velikost_rotace) { return (k_rotaci >> velikost_rotace) | (k_rotaci << (32 - velikost_rotace)); }
 using namespace std;
-string checksum(string msg){
+string checksum(string msg, string chs){
     unsigned int i;
     unsigned int len = msg.length();
     const int size = 64;
-    unsigned char messageblock[size];
+    unsigned char messageblock[size]; 
     
     //zakladní vytvoření bloku
     std::fill_n(messageblock, size, 0);
-    for(unsigned int i = 0; i < len; i++)
+    for(unsigned int i = 0; i < len; i++) 
     {
          messageblock[i] = msg[i];
     }
@@ -44,7 +43,21 @@ string checksum(string msg){
     w[i] = w[i-16] + a0 + w[i-7] + a1;
     }
     //Initialize hash value h0 to h7: first 32 bits of the fractional parts of the square roots of the first 8 primes 2..19).
-    uint32_t hash[8] = {0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
+    uint32_t hash_primes[8] = {0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
+    uint32_t hash[8]; 
+    for(int i = 0; i <8; i++)
+    {
+        if (chs=="") hash[i] = hash_primes[i];
+        else 
+        {
+            hash[i] = std::stoul(chs.substr(i*8, 8), nullptr, 16);
+            //cout << chs.substr(i*8, 8)<<endl;
+        }
+
+        //cout << hash[i] << endl;
+                
+    }
+    
     uint32_t k[64] =   {0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,
                         0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
                         0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,
@@ -106,11 +119,10 @@ int vypocetMAC(string msg, string key)
         return -1;
      }
      else{
-        cout << checksum(key+msg) << endl;
+        cout << checksum(key+msg, "") << endl;
         return 0;
      }
 }
-
 
 int main(int argc, char** argv) {
     string out = "";
@@ -122,15 +134,20 @@ int main(int argc, char** argv) {
     //Nacteni vstupní zprávy
     string input = "";
     string key = "";
-    string chs = "";
+    string chs = ""; 
+    int num;
+    string msg = "";
     bool s_flag = false;
     bool k_flag = false;
     bool c_flag = false;
     bool v_flag = false;
     bool m_flag = false;
+    bool n_flag = false;
+    bool a_flag = false;
+    bool e_flag = false;
     getline(cin, input);
     int argument;
-    while ((argument  = getopt (argc, argv, "csk:vm:")) != -1)
+    while ((argument  = getopt (argc, argv, "csk:vm:n:a:e")) != -1)
     {
         switch (argument) 
         {
@@ -151,14 +168,26 @@ int main(int argc, char** argv) {
             m_flag = true;
             chs = optarg;
             break;
+        case 'n':
+            n_flag = true;
+            num = atoi(optarg);
+            break;
+        case 'a':
+            a_flag = true;
+            msg = optarg;
+            break;
+        case 'e':
+            e_flag = true;
+            break;
         }
     }
 
-    //-c – Vypočte a tiskne SHA-256 checksum vstupní zprávy na STDOUT (zakončeno právě jedním \n).
+    //-c – Vypočte a tiskne SHA-256 checksum vstupní zprávy na STDOUT (zakončeno právě jedním \n).
     if (c_flag) 
     {
-        out = checksum(input);
-        cout << out << endl;
+        out = checksum(input,"");
+        cout << out << endl; //TODO REMOVE
+        return 0;
     }
 
     //-s – Vypočte MAC, použitím implementované SHA-256, pro vstupní zprávu a tisne výsledek na STDOUT (zakončeno právě jedním \n). Musí být použito v kombinaci s -k parametrem.
@@ -172,7 +201,7 @@ int main(int argc, char** argv) {
                 return -1;
             }
             else{
-                cout << checksum(key+input) << endl;
+                cout << checksum(key+input, "") << endl;
                 return 0;
             }
         }
@@ -185,10 +214,10 @@ int main(int argc, char** argv) {
     // v – Ověří MAC pro daný klíč a vstupní zprávu. Vrací 0 v případě validního MAC, jinak 1. Musí být použito v kombinaci s -k a -m parametry.
     if (v_flag)
     {
-        if(k_flag && m_flag) 
+        if(k_flag && m_flag)  
         {
             
-           if (checksum(key+input) == chs)
+           if (checksum(key+input, "") == chs)
            {
             cout << "OK!!" << endl; //TODO SMAZAT
             return 0;
@@ -203,8 +232,80 @@ int main(int argc, char** argv) {
         cerr << "Spatne zadany argument -v bez použití -k KEY či -m CHS" << endl;
         return -1;
         }
+    }
+    /*
+    -e – Provede length extension útok na MAC a vstupní zprávu. Přepočítaný MAC a
+    prodloužená zpráva jsou tištěny na STDOUT v tomto pořadí (každá položka zakončena
+    právě jedním \n). Padding přidaný ke vstupní zprávě bude ve formátu posloupnosti
+    escapovaných znaků \xXX, kde XX bude ASCII hodnota znaku v hexadecimální
+    soustavě. Musí být použito v kombinaci s -m, -n a -a parametry*/
+    if(e_flag)
+    {
+        if(m_flag && n_flag && a_flag)
+        {
+            if (!regex_match(msg , regex("^[a-zA-Z0-9!#$%&’\"()*+,\\-.\\/:;<>=?@[\\]\\^_{}|~]*$"))) 
+            {
+                cerr<< "Nesplneny regex  ^[a-zA-Z0-9!#$%&’\"()*+,\\-.\\/:;<>=?@[\\]\\^_{}|~]*$ pro -m msg" << endl;
+                return -1;
+            }
+            int input_len = input.length();
+            if (chs.length()!=64)
+            {
+                cerr<< "Spatna delka MAC zpravyy (not 64)" << endl;
+                return -1;
+            }
+
+            //string test = checksum("aa", chs);
+
+            int padding_size = 64 - 1 - 1 - msg.length() - num;
+
+            string qq = "";
+            stringstream ss;
+
+            ss << input << hex << 128;
+             for (int i = 0; i < 64 - (1+1+input_len+num); i++)
+            {
+                ss << hex << 0;
+            }
+            ss << hex <<8*(input_len + 5);
+
+            ss << msg << hex << 128;
+            for (int i = 0; i < padding_size; i++)
+            {
+            ss << hex << 0;
+            }
+            ss << hex << (msg.length() + 0) * 8;
+            cout << ss.str() << endl;
+
+            cout << checksum(ss.str(), chs);
+
+
+            // cout << input << "\\x" << hex << 128;
+            // for (int i = 0; i < 64 - (1+1+input_len+num); i++)
+            // {
+            //     cout << "\\x0" << hex << 0;
+            // }
+
+
+            // int bit_length = 8*(input_len + 5);
+            // if (bit_length > 15) cout << "\\x" << hex << bit_length << msg << endl;
+            // else cout << "\\x0" << hex << bit_length << msg << endl;
+
+
+            
+            
+
+
+        }
+        else 
+        {
+        cerr << "Spatne zadany argument -a bez použití -m CHS, -n NUM ci -a MSG" << endl;
+        return -1;
+        }
 
     }
+
+
 
     //TODO Return pokud nic nepatterne
     return 0;
