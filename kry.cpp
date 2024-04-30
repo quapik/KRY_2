@@ -6,20 +6,24 @@
 #include <regex>
 #include <cstdint>
 #include  <iomanip>
-void printBinary(unsigned char c) {
-    for (int i = 7; i >= 0; --i) {
-        std::cout << ((c >> i) & 1);
+using namespace std;
+
+//Funkce co mi vrati pocet uzitecnych bitu (Kvuli spravnemu doplneni delky v poslednich 8bytech)
+int uzitecneBity(int delka) {
+    int count = 0;
+    while (delka != 0) 
+    {
+        delka >>= 1; 
+        ++count;
     }
+    return count;
 }
 
-void printBinaryINT(uint32_t value) {
-    for (int i = 31; i >= 0; --i) {
-        std::cout << ((value >> i) & 1);
-    }
-}
+//PravaRotace
 uint32_t rightrotate(uint32_t k_rotaci,  unsigned int velikost_rotace) { return (k_rotaci >> velikost_rotace) | (k_rotaci << (32 - velikost_rotace)); }
-using namespace std;
-string checksum(string msg, string chs){
+
+//Hlavni pocitaci funcke
+string checksum(string msg, string chs, int zapisovana_delka){
 
     unsigned int len = msg.length();
 
@@ -27,140 +31,111 @@ string checksum(string msg, string chs){
     const int size_block = 64*pocet_bloku;
     unsigned char messageblock[size_block]; 
 
-    cout << pocet_bloku <<  " DELKA " << msg.length() << endl;
-
     //zakladní vytvoření bloku
     std::fill_n(messageblock, size_block, 0);
 
-    if (chs!="") 
+    for(unsigned int i = 0; i < len; i++) 
     {
-         for(unsigned int i = 0; i < len; i += 2) 
-            {   
-                messageblock[i] = 0;
-                messageblock[i] = ((msg[i])<<4) | msg[i+1];
-                cout << messageblock[i] << " " << msg[i] << " " << msg[i+1] << endl;
-            }
-    }
-    else 
-    {
-         for(unsigned int i = 0; i < len; i++) 
-            {
-                messageblock[i] = msg[i];
-            }
+        messageblock[i] = msg[i];
     }
    
-
+    //Vlozeni 128
+    messageblock[len] = 0b10000000;
     
-    // messageblock[len] = 0b10000000;
+    //ulozeni delky do poslednich 8bytu
+    if(zapisovana_delka>0) len = zapisovana_delka;
 
+    uint64_t delka_vstup_bity= len*8; 
+    messageblock[size_block-8] = delka_vstup_bity;
+    for(int i = 1; i<9; i++)
+    {
+        messageblock[size_block-i] = ((delka_vstup_bity >> 8*(i-1)) & 0xFF);
+    }
+    
+    //Initialize hash value h0 to h7: first 32 bits of the fractional parts of the square roots of the first 8 primes 2..19).
+    uint32_t hash_primes[8] = {0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
+    uint32_t hash[8]; 
+    for(int i = 0; i <8; i++)
+    {   
+        if (chs=="") hash[i] = hash_primes[i]; //pokud jsem neposlal zadny initial hash
+        else hash[i] = std::stoul(chs.substr(i*8, 8), nullptr, 16);     
+    }
+    
+    uint32_t k[64] =   {0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,
+                        0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+                        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,
+                        0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+                        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,
+                        0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+                        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,
+                        0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+                        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,
+                        0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+                        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,
+                        0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+                        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,
+                        0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+                        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,
+                        0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2	};
+    int i;
 
-    // //ulozeni delky do poslednich 8bytu
-    // uint64_t delka_vstup_bity= len*8; 
-    // messageblock[size_block-8] = delka_vstup_bity;
-    // for(int i = 1; i<9; i++)
-    // {
-    // messageblock[size_block-i] = ((delka_vstup_bity >> 8*(i-1)) & 0xFF);
-    // }
-    
- 
-    // // for(int i = 0; i <size_block/4; i++)
-    // // {
-    // //     printBinary(messageblock[i*4]);
-    // //     cout << " ";
-    // //     printBinary(messageblock[i*4+1]);cout << " ";
-    // //     printBinary(messageblock[i*4+2]);cout << " ";
-    // //     printBinary(messageblock[i*4+3]);
-    // //     cout <<endl;
-    // // }
-    //   //Initialize hash value h0 to h7: first 32 bits of the fractional parts of the square roots of the first 8 primes 2..19).
-    // uint32_t hash_primes[8] = {0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
-    // uint32_t hash[8]; 
-    // for(int i = 0; i <8; i++)
-    // {
-    //     if (chs=="") hash[i] = hash_primes[i];
-    //     else 
-    //     {
-    //         hash[i] = std::stoul(chs.substr(i*8, 8), nullptr, 16);
-    //         //cout << hex << hash[7-i] <<endl;
-    //     }         
-    // }
-    
-    // uint32_t k[64] =   {0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,
-    //                     0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
-    //                     0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,
-    //                     0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
-    //                     0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,
-    //                     0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
-    //                     0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,
-    //                     0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
-    //                     0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,
-    //                     0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
-    //                     0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,
-    //                     0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
-    //                     0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,
-    //                     0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
-    //                     0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,
-    //                     0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2	};
-    
-    // for(int IBLOCK = 0; IBLOCK < pocet_bloku; IBLOCK++)
-    // {
-    //     //64-entry message schedule array
-    // uint32_t w[64] = {0};
-    // //copy 1st chunk into 1st 16 words
-    // for(i = 0; i < 16; i++)
-    // {
-    //    w[i] |= messageblock[IBLOCK*64+ (i*4)]; w[i] <<= 8;
-    //    w[i] |= messageblock[IBLOCK*64+(i*4)+1]; w[i] <<= 8;
-    //    w[i] |= messageblock[IBLOCK*64+(i*4)+2]; w[i] <<= 8;  
-    //    w[i] |= messageblock[IBLOCK*64+(i*4)+3];
-    // //    printBinaryINT(w[i]);
-    // //    cout << endl;
-    // }
+    //Pro kazdy blok se vse postupne prepocita
+    for(int IBLOCK = 0; IBLOCK < pocet_bloku; IBLOCK++)
+    {
+    //64-entry message schedule array
+    uint32_t w[64] = {0};
+    //copy 1st chunk into 1st 16 words
+    for(i = 0; i < 16; i++)
+    {
+       w[i] |= messageblock[IBLOCK*64+ (i*4)]; w[i] <<= 8;
+       w[i] |= messageblock[IBLOCK*64+(i*4)+1]; w[i] <<= 8;
+       w[i] |= messageblock[IBLOCK*64+(i*4)+2]; w[i] <<= 8;  
+       w[i] |= messageblock[IBLOCK*64+(i*4)+3];
+    }
 
-    // //Dopočítání ostatních w
-    // for(i = 16; i < 64; i++)
-    // {
-    // uint32_t a0 = rightrotate(w[i-15],7) ^ rightrotate(w[i-15],18) ^ (w[i-15] >> 3);
-    // uint32_t a1 = rightrotate(w[i-2],17) ^ rightrotate(w[i-2],19) ^ (w[i-2] >> 10);
-    // w[i] = w[i-16] + a0 + w[i-7] + a1;
-    // }
+    //Dopočítání ostatních w
+    for(i = 16; i < 64; i++)
+    {
+    uint32_t a0 = rightrotate(w[i-15],7) ^ rightrotate(w[i-15],18) ^ (w[i-15] >> 3);
+    uint32_t a1 = rightrotate(w[i-2],17) ^ rightrotate(w[i-2],19) ^ (w[i-2] >> 10);
+    w[i] = w[i-16] + a0 + w[i-7] + a1;
+    }
   
-    // //Initialize working variables to initial hash value
-    // uint32_t a = hash[0]; uint32_t b = hash[1]; uint32_t c = hash[2]; uint32_t d = hash[3]; uint32_t e = hash[4]; uint32_t f = hash[5]; uint32_t g = hash[6]; uint32_t h = hash[7];
+    //Initialize working variables to initial hash value
+    uint32_t a = hash[0]; uint32_t b = hash[1]; uint32_t c = hash[2]; uint32_t d = hash[3]; uint32_t e = hash[4]; uint32_t f = hash[5]; uint32_t g = hash[6]; uint32_t h = hash[7];
 
-    // for(i = 0; i < 64; i++)
-    // {
-    //     uint32_t sum1 =  rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
-    //     uint32_t choice = (e & f)  ^  ((~e)&g); //(e and f) xor ((not e) and g)
-    //     uint32_t sum0 =  rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
-    //     uint32_t majority = (a & b) ^  (a & c) ^ (b & c);
-    //     uint32_t temp1 = h + sum1 + choice + k[i] + w[i];
-    //     uint32_t temp2 = sum0 + majority;
-    //     h = g;
-    //     g = f;
-    //     f = e;
-    //     e = d + temp1;
-    //     d = c;
-    //     c = b;
-    //     b = a;
-    //     a = temp1 + temp2;
-    // }
-    // //Add the working variables to the current hash value
-    // hash[0] = hash[0] + a;
-    // hash[1] = hash[1] + b;
-    // hash[2]= hash[2] + c;
-    // hash[3] = hash[3] + d;
-    // hash[4] = hash[4] + e;
-    // hash[5] = hash[5] + f;
-    // hash[6] = hash[6] + g;
-    // hash[7]= hash[7] + h;
-    // }
+    for(i = 0; i < 64; i++)
+    {
+        uint32_t sum1 =  rightrotate(e, 6) ^ rightrotate(e, 11) ^ rightrotate(e, 25);
+        uint32_t choice = (e & f)  ^  ((~e)&g); //(e and f) xor ((not e) and g)
+        uint32_t sum0 =  rightrotate(a, 2) ^ rightrotate(a, 13) ^ rightrotate(a, 22);
+        uint32_t majority = (a & b) ^  (a & c) ^ (b & c);
+        uint32_t temp1 = h + sum1 + choice + k[i] + w[i];
+        uint32_t temp2 = sum0 + majority;
+        h = g;
+        g = f;
+        f = e;
+        e = d + temp1;
+        d = c;
+        c = b;
+        b = a;
+        a = temp1 + temp2;
+    }
+    //Add the working variables to the current hash value
+    hash[0] = hash[0] + a;
+    hash[1] = hash[1] + b;
+    hash[2]= hash[2] + c;
+    hash[3] = hash[3] + d;
+    hash[4] = hash[4] + e;
+    hash[5] = hash[5] + f;
+    hash[6] = hash[6] + g;
+    hash[7]= hash[7] + h;
+    }
     
-    // stringstream ss;
-    // // Append hash values to get final digest and print
-    // for(i = 0; i < 8; i++) ss << hex << hash[i];
-    // return(ss.str());
-    return("S");
+    stringstream ss;
+    // Append hash values to get final digest and print
+    for(i = 0; i < 8; i++) ss << hex << hash[i];
+    return(ss.str());
 }
 
 int vypocetMAC(string msg, string key)
@@ -171,7 +146,7 @@ int vypocetMAC(string msg, string key)
         return -1;
      }
      else{
-        cout << checksum(key+msg, "") << endl;
+        cout << checksum(key+msg, "",0) << endl;
         return 0;
      }
 }
@@ -180,13 +155,17 @@ int main(int argc, char** argv) {
     string out = "";
     //Program bez parametrů - dokumentace na STD out
      if (argc == 1) {
-        cout << "Dokumentace!" << endl;
+        cout << "DOKUMENTACE - MAC za použití SHA-256 & Length extension attack" <<endl;
+        cout << "./kry -c  -- Vypočte a tiskne SHA-256 checksum vstupní zprávy na STDOUT"<<endl;
+        cout <<"./kry -s -k KEY -- Vypočte MAC, použitím implementované SHA-256, pro vstupní zprávu a tisne výsledek na STDOUT "<<endl;
+        cout <<"./kry -v -k KEY -- – Ověří MAC pro daný klíč a vstupní zprávu. Vrací 0 v případě validního MAC, jinak 1."<<endl;
+        cout <<"./kry -e -n NUM -a MSG -m MAC --  – Provede length extension útok na MAC a vstupní zprávu. Přepočítaný MAC a prodloužená zpráva jsou tištěny na STDOUT"<<endl;
         return 1;
     }
     //Nacteni vstupní zprávy
     string input = "";
     string key = "";
-    string chs = ""; 
+    string chs = "";  
     int num;
     string msg = "";
     bool s_flag = false;
@@ -237,8 +216,7 @@ int main(int argc, char** argv) {
     //-c – Vypočte a tiskne SHA-256 checksum vstupní zprávy na STDOUT (zakončeno právě jedním \n).
     if (c_flag) 
     {
-        out = checksum(input,"");
-        cout << out << endl; //TODO REMOVE
+        cout << checksum(input,"",0) << endl;
         return 0;
     }
 
@@ -253,7 +231,7 @@ int main(int argc, char** argv) {
                 return -1;
             }
             else{
-                cout << checksum(key+input, "") << endl;
+                cout << checksum(key+input, "",0) << endl;
                 return 0;
             }
         }
@@ -269,13 +247,11 @@ int main(int argc, char** argv) {
         if(k_flag && m_flag)  
         {
             
-           if (checksum(key+input, "") == chs)
+           if (checksum(key+input, "",0) == chs)
            {
-            cout << "OK!!" << endl; //TODO SMAZAT
             return 0;
            }
            else  {
-            cout << "NOT OK!!" << endl;  //TODO SMAZAT
             return 1;
            }
         }
@@ -300,52 +276,51 @@ int main(int argc, char** argv) {
                 cerr<< "Nesplneny regex  ^[a-zA-Z0-9!#$%&’\"()*+,\\-.\\/:;<>=?@[\\]\\^_{}|~]*$ pro -m msg" << endl;
                 return -1;
             }
-            int input_len = input.length();
+            
             if (chs.length()!=64)
             {
                 cerr<< "Spatna delka MAC zpravyy (not 64)" << endl;
                 return -1;
             }
 
-            //string test = checksum("aa", chs);
+            int input_len = input.length();
             int msg_len = msg.length();
-            int padding_size = 64 - 1 - 1 - msg_len - num;
-
-            string qq = "";
             stringstream ss;
         
             int delka_padding_puvodni = 64 - 1- input_len - num - 8;
-            int delka_padding_append = 64 - 1 - msg_len - 8;
-            cout << "puvodni "<<delka_padding_puvodni << " novy " << delka_padding_append << endl;
+            //delka klice, delka obou zprav, puvoddni padding, 1 oddeleni, 8 delka
+            int delka_zapisovana = num + input_len +  msg_len + delka_padding_puvodni + 1 + 8;
 
-            ss <<"3d3d6d657373616765"<< hex << 128;
-            for (int i = 0; i < delka_padding_append; i++)
-            {
-               ss << hex << 0;
-               ss << hex << 0;
-            }
+            ss << msg;
 
-            uint64_t delka_final = (1 + num + msg_len + input_len + delka_padding_puvodni + 8)*8;
-            cout << ss.str()  <<endl;
-            ss << setfill('0') << setw(16) << right << hex << delka_final;
-            cout << delka_final <<endl;
-            cout << ss.str()  <<endl;
-
-            cout << checksum(ss.str(), chs);
+            //Vypis noveho hashe
+            cout << checksum(ss.str(), chs, delka_zapisovana) << endl;
             
+            delka_zapisovana = 8*(input_len + 5);
+            
+            int pocet_nulovych_bytu_delka = 8-(uzitecneBity(delka_zapisovana)/8);
+            if(uzitecneBity(delka_zapisovana)%8!=0) pocet_nulovych_bytu_delka--;
 
-
-            //PRINT MESSEGE
-            // cout << input << "\\x" << hex << 128;
-            // for (int i = 0; i < 64 - (1+1+input_len+num); i++)
-            // {
-            //     cout << "\\x0" << hex << 0;
-            // }
-
-
-            // int bit_length = 8*(input_len + 5);
-            // if (bit_length > 15) cout << "\\x" << hex << bit_length << msg << endl;
-            // else cout << "\\x0" << hex << bit_length << msg << endl;
+            // //Vypis zpravy
+            cout << input << "\\x" << hex << 128;
+            //Padding
+            for (int i = 0; i < 64 - (1+8+input_len+num); i++)
+            {
+                cout << "\\x0" << hex << 0;
+            }
+            //Nulove delka
+            for (int i = 0; i<pocet_nulovych_bytu_delka; i++)
+            {
+                cout << "\\x0" << hex << 0;
+            }
+            //Delka podle toho kolik zabrala bytu
+            for (int i = 8-pocet_nulovych_bytu_delka-1; i>-1; i--)
+            {   
+                int byte_delky = delka_zapisovana >> 8*i;
+                if (byte_delky > 15) cout << "\\x" << uppercase << hex << byte_delky << msg << endl;
+                else cout << "\\x0" << uppercase << hex << byte_delky << msg << endl;
+            }
+            return 0;
 
         }
         else 
@@ -356,8 +331,5 @@ int main(int argc, char** argv) {
 
     }
 
-
-
-    //TODO Return pokud nic nepatterne
-    return 0;
+    return -1;
 }

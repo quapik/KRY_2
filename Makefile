@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -Wall -Wextra -fsanitize=address -fsanitize=leak
+CFLAGS = -Wall -Wextra 
 
 TARGET = kry
  
